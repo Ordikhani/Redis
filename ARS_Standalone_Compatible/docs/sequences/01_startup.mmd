@@ -1,0 +1,32 @@
+sequenceDiagram
+    autonumber
+    participant Main as main.cpp
+    participant Cfg as ServerConfig::instance
+    participant Startup as Startup::check
+    participant Server as Server::start
+    participant Store as HotColdStore::open
+    participant Worker as HotColdWorker::run
+    participant Redis as ArsRedisClient / Redis
+    participant PG as PostgresStore / PostgreSQL
+    Main->>Startup: check()
+    Startup->>Cfg: value(postgres/*, redis/*, server/*, udp/*)
+    Cfg-->>Startup: Compiled values, including SQL credential
+    Startup->>PG: QPSQL open + SELECT 1
+    PG-->>Startup: Query OK
+    Startup->>Redis: CONNECT, optional Redis AUTH, PING
+    Redis-->>Startup: PONG
+    Startup->>Startup: Probe TCP/UDP listening ports
+    Startup-->>Main: ready=true
+    Main->>Server: start()
+    Server->>Cfg: instance()
+    Server->>Store: open(config)
+    Store->>PG: open(config), writer lock, migrate
+    Store->>Redis: connect + durability check
+    Store->>Worker: start()
+    Worker->>Cfg: instance() (same compiled values)
+    Worker->>PG: open(config, no writer lock)
+    Worker->>Redis: connect
+    Store-->>Server: initialized
+    Server->>Server: QTcpServer.listen(compiled host/port)
+    Server->>Server: QUdpSocket.bind(compiled host/port)
+    Server-->>Main: [READY] listeners

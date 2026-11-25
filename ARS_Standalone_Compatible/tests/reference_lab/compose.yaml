@@ -1,0 +1,33 @@
+# Dedicated LOCAL TEST databases. Never point this stack at production data.
+name: ars-local-lab
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ars_app
+      POSTGRES_PASSWORD: lab-only-change-me-2026
+      POSTGRES_DB: ars_test
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - ars_lab_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ars_app -d ars_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "always", "--maxmemory-policy", "noeviction", "--save", "60", "1000"]
+    ports:
+      - "127.0.0.1:16379:6379"
+    volumes:
+      - ars_lab_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+volumes:
+  ars_lab_postgres:
+  ars_lab_redis:

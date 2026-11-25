@@ -1,0 +1,24 @@
+sequenceDiagram
+    autonumber
+    participant Client as ArsClient / Producer or Consumer
+    participant Timer as ArsClient timeout timer
+    participant Server as Server
+    Client->>Server: hello({}), subscribe(channel)
+    Server-->>Client: hello OK, subscribed=true
+    alt TCP transport
+        Server--xClient: network disconnect
+        Client->>Client: disconnected, pending requests fail
+        Timer->>Client: reconnect every ~4s (if not manual)
+        Client->>Server: TCP connect then hello
+    else UDP transport
+        Timer->>Server: heartbeat every ~15s
+        Server--xTimer: heartbeat response lost
+        Timer->>Timer: after 45s without response mark not ready
+        Timer->>Server: retry hello over same UDP endpoint
+    end
+    Server-->>Client: hello OK
+    Client->>Server: restore remembered subscriptions
+    Server-->>Client: subscribed=true
+    Client->>Server: history/recent query for gap recovery (application decision)
+    Server-->>Client: durable history pages
+    Note over Client,Server: Manual disconnectFromServer disables automatic reconnect

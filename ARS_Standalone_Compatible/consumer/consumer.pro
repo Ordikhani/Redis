@@ -1,0 +1,10 @@
+QT += core network
+QT -= gui
+CONFIG += console c++17
+CONFIG -= app_bundle
+TEMPLATE = app
+TARGET = ars_consumer
+DEFINES += ARS_STATIC
+INCLUDEPATH += vendor/ars/client vendor/ars/include
+SOURCES += src/receiver.cpp vendor/ars/client/ArsClient.cpp vendor/ars/model/ArsDataRecord.cpp
+HEADERS += vendor/ars/client/ArsClient.h vendor/ars/include/ARS/ArsDataRecord.h vendor/ars/include/ARS/ArsGlobal.h

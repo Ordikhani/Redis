@@ -1,0 +1,48 @@
+sequenceDiagram
+    autonumber
+    participant P as Producer / ArsClient
+    participant T as QTcpServer / Server
+    participant S as HotColdStore
+    participant Redis as ArsRedisClient / Redis
+    participant W as HotColdWorker
+    participant PG as PostgresStore / PostgreSQL
+    participant C as Consumer / ArsClient
+    P->>T: TCP connect to 7090
+    C->>T: TCP connect to 7090
+    P->>T: JSON-LF hello({})
+    T-->>P: ok protocol=1
+    C->>T: JSON-LF hello({})
+    T-->>C: ok protocol=1
+    C->>T: JSON-LF subscribe(channel)
+    T-->>C: subscribed=true
+    P->>T: JSON-LF publish(channel,record)
+    T->>S: save(record,receivedAtMs)
+    alt Hot or new ID
+        S->>Redis: EVAL append record/history
+        Redis-->>S: append OK
+    else Cold archived ID
+        S->>W: enqueueRecovery(id)
+        W->>PG: read archived history in batches
+        PG-->>W: archived records
+        W->>Redis: stage + publish restored history
+        loop Server::processDeferred timer (25 ms)
+            T->>S: recoveryStatus(jobId)
+            S->>W: recoveryStatus(jobId)
+            W-->>S: completed
+            S-->>T: completed + restoredCount
+        end
+        T->>S: save held record
+        S->>Redis: EVAL append
+        Redis-->>S: append OK
+    end
+    S-->>T: result stored=true
+    T-->>P: response ok=true + sequence
+    T-->>C: event record(channel,record,sequence)
+    C->>T: JSON-LF recent(id,lookbackSec=1800)
+    T->>S: recent(args)
+    S->>Redis: read indexed hot records (when active)
+    opt ID inactive/cold
+        S->>PG: query timed history (without hydrate)
+    end
+    S-->>T: items + pagination
+    T-->>C: response ok=true result.items

@@ -1,0 +1,12 @@
+/build/
+/build-*/
+**/ars-token.txt
+**/postgres-password.txt
+**/redis-password.txt
+*.dump
+*.db
+*.db-shm
+*.db-wal
+__pycache__/
+*.pyc
+.env

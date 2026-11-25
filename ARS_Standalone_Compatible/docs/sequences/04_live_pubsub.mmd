@@ -1,0 +1,28 @@
+sequenceDiagram
+    autonumber
+    participant C as Consumer / ArsClient
+    participant S as Server::handleRequest
+    participant P as Producer / ArsClient
+    participant Store as HotColdStore
+    participant Redis as Redis
+    C->>S: hello then subscribe(channel)
+    S-->>C: subscribed=true
+    P->>S: publish(channel,record)
+    S->>Store: save(record)
+    Store->>Redis: append history + latest
+    Redis-->>Store: stored sequence
+    Store-->>S: stored=true
+    S-->>P: ok + receivedAtMs + sequence
+    alt Consumer selected TCP
+        S-->>C: JSON-LF event=record
+    else Consumer selected UDP
+        S-->>C: UDP event=record + eventId
+        alt event received
+            C->>S: ack_event(eventId)
+            S-->>C: acknowledged=true
+        else ACK absent
+            S-->>C: retry same eventId, bounded attempts
+            C->>C: duplicate-event suppression by eventId
+        end
+    end
+    Note over C,Redis: save without publish does NOT emit live events
